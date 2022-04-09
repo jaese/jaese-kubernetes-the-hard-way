@@ -1,0 +1,113 @@
+- name: Bootstrap the Kubernetes Control Plane
+  become: true
+  hosts: controllers
+
+  tasks:
+
+  # Common
+
+  - ansible.builtin.copy:
+      src: "_local/kubectl"
+      dest: "/usr/local/bin/"
+      mode: '755'
+
+  - ansible.builtin.file:
+      path: /etc/kubernetes/config
+      state: directory
+
+  - ansible.builtin.file:
+      path: /var/lib/kubernetes
+      state: directory
+
+  - ansible.builtin.copy:
+      src: "_local/ca.pem"
+      dest: "/var/lib/kubernetes/"
+
+  # Configure the Kubernetes API Server
+
+  - ansible.builtin.copy:
+      src: "_local/kube-apiserver"
+      dest: "/usr/local/bin/"
+      mode: '755'
+    notify: restart_kube-apiserver
+
+  - ansible.builtin.copy:
+      src: "_local/{{ item }}"
+      dest: "/var/lib/kubernetes/"
+    loop:
+    - "ca-key.pem"
+    - "kubernetes.pem"
+    - "kubernetes-key.pem"
+    - "service-account.pem"
+    - "service-account-key.pem"
+    - "encryption-config.yaml"
+    notify: restart_kube-apiserver
+
+  - ansible.builtin.template:
+      src: kube-apiserver.service.j2
+      dest: /etc/systemd/system/kube-apiserver.service
+    notify: restart_kube-apiserver
+
+  # Configure the Kubernetes Controller Manager
+
+  - ansible.builtin.copy:
+      src: "_local/kube-controller-manager"
+      dest: "/usr/local/bin/"
+      mode: '755'
+    notify: restart_kube-controller-manager
+
+  - ansible.builtin.copy:
+      src: _local/kube-controller-manager.kubeconfig
+      dest: /var/lib/kubernetes/
+    notify: restart_kube-controller-manager
+
+  - ansible.builtin.template:
+      src: kube-controller-manager.service.j2
+      dest: /etc/systemd/system/kube-controller-manager.service
+    notify: restart_kube-controller-manager
+
+  # Configure the Kubernetes Scheduler
+
+  - ansible.builtin.copy:
+      src: "_local/kube-scheduler"
+      dest: "/usr/local/bin/"
+      mode: '755'
+    notify: restart_kube-scheduler
+
+  - ansible.builtin.copy:
+      src: _local/kube-scheduler.kubeconfig
+      dest: /var/lib/kubernetes/
+    notify: restart_kube-scheduler
+
+  - ansible.builtin.copy:
+      src: kube-scheduler.yaml
+      dest: /etc/kubernetes/config/
+    notify: restart_kube-scheduler
+
+  - ansible.builtin.copy:
+      src: kube-scheduler.service
+      dest: /etc/systemd/system/
+    notify: restart_kube-scheduler
+
+  handlers:
+
+  - name: restart_kube-apiserver
+    ansible.builtin.systemd:
+      daemon_reload: true
+      name: "kube-apiserver"
+      enabled: true
+      state: "restarted"
+
+  - name: restart_kube-controller-manager
+    ansible.builtin.systemd:
+      daemon_reload: true
+      name: "kube-controller-manager"
+      enabled: true
+      state: "restarted"
+
+  - name: restart_kube-scheduler
+    ansible.builtin.systemd:
+      daemon_reload: true
+      name: "kube-scheduler"
+      enabled: true
+      state: "restarted"

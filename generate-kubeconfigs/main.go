@@ -71,7 +71,7 @@ func generateKubeconfigFile(spec *kubeconfigSpec) {
 		"kubectl", "config", "set-cluster", "kubernetes-the-hard-way",
 		"--certificate-authority="+OutPathPrefix+"ca.pem",
 		"--embed-certs=true",
-		"--server=https://"+KubernetesPublicAddress,
+		"--server=https://"+KubernetesPublicAddress+":6443",
 		"--kubeconfig="+OutPathPrefix+spec.OutFilePrefix+".kubeconfig"))
 
 	utils.MustRun(sh.Command(

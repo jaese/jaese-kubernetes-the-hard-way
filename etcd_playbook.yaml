@@ -1,0 +1,51 @@
+- name: Bootstrap the etcd Cluster
+  become: true
+  hosts: controllers
+
+  tasks:
+
+  - name: Create data dir
+    ansible.builtin.file:
+      path: /var/lib/etcd
+      state: directory
+      mode: '700'
+
+  - name: Copy executables
+    ansible.builtin.copy:
+      src: "_local/etcd-v3.4.15-linux-amd64/{{ item }}"
+      dest: "/usr/local/bin/"
+      mode: '755'
+    loop:
+    - "etcd"
+    - "etcdctl"
+    notify: restart_etcd
+
+  - name: Create config dir
+    ansible.builtin.file:
+      path: /etc/etcd
+      state: directory
+
+  - name: Copy certs
+    ansible.builtin.copy:
+      src: "_local/{{ item }}"
+      dest: "/etc/etcd/"
+    loop:
+    - "ca.pem"
+    - "kubernetes.pem"
+    - "kubernetes-key.pem"
+    notify: restart_etcd
+
+  - name: Install etcd service unit
+    ansible.builtin.template:
+      src: "etcd.service.j2"
+      dest: "/etc/systemd/system/etcd.service"
+    notify: restart_etcd
+
+  handlers:
+
+  - name: restart_etcd
+    ansible.builtin.systemd:
+      daemon_reload: true
+      name: "etcd"
+      enabled: true
+      state: "restarted"

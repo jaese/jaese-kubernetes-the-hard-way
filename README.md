@@ -48,6 +48,10 @@ ssh worker-0
 
 Create `_local` in this directory. All generated and downloaded files will be stored in this directory.
 
+```sh
+mkdir _local
+```
+
 Run `provision-certs` script to provision all necessary certificates and keys (same as the original tutorial).
 
 ```sh

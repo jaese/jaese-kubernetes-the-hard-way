@@ -1,0 +1,153 @@
+- name: Bootstrap the Kubernetes Worker Nodes
+  become: true
+  hosts: workers
+
+  tasks:
+
+  - name: Install the OS dependencies
+    apt:
+      pkg:
+      - socat
+      - conntrack
+      - ipset
+      state: latest
+      update_cache: true
+
+  - name: Create the installation directories
+    ansible.builtin.file:
+      path: "{{ item }}"
+      state: directory
+    loop:
+    - /etc/cni/net.d
+    - /opt/cni/bin
+    - /var/lib/kubelet
+    - /var/lib/kube-proxy
+    - /var/lib/kubernetes
+    - /var/run/kubernetes
+    - /etc/containerd
+
+  # Install the worker binaries
+
+  - ansible.builtin.copy:
+      src: "_local/{{ item }}"
+      dest: /usr/local/bin/
+      mode: "755"
+    loop:
+    - crictl
+    - kubectl
+    - kube-proxy
+    - runc
+    notify:
+    - restart_containerd
+    - restart_kubelet
+    - restart_kube-proxy
+
+  - ansible.builtin.unarchive:
+      src: "_local/cni-plugins-linux-amd64-v0.9.1.tgz"
+      dest: "/opt/cni/bin/"
+    notify: restart_kubelet
+
+  # Configure CNI Networking
+
+  - ansible.builtin.template:
+      src: "10-bridge.conf.j2"
+      dest: "/etc/cni/net.d/10-bridge.conf"
+    notify: restart_kubelet
+  - ansible.builtin.copy:
+      src: "99-loopback.conf"
+      dest: "/etc/cni/net.d/"
+    notify: restart_kubelet
+
+  # Configure containerd
+
+  - ansible.builtin.unarchive:
+      src: "_local/containerd-1.4.4-linux-amd64.tar.gz"
+      dest: "/bin/"
+      extra_opts: ["--strip-components=1"]
+    notify: restart_containerd
+
+  - ansible.builtin.copy:
+      src: containerd-config.toml
+      dest: /etc/containerd/config.toml
+    notify: restart_containerd
+
+  - ansible.builtin.copy:
+      src: containerd.service
+      dest: /etc/systemd/system/
+    notify: restart_containerd
+
+  # Configure the Kubelet
+
+  - ansible.builtin.copy:
+      src: "_local/kubelet"
+      dest: /usr/local/bin/
+      mode: "755"
+    notify: restart_kubelet
+
+  - ansible.builtin.copy:
+      src: "_local/{{ item }}"
+      dest: "/var/lib/kubelet/"
+    loop:
+    - "{{ inventory_hostname }}.pem"
+    - "{{ inventory_hostname }}-key.pem"
+    notify: restart_kubelet
+
+  - ansible.builtin.copy:
+      src: "_local/{{ inventory_hostname }}.kubeconfig"
+      dest: "/var/lib/kubelet/kubeconfig"
+    notify: restart_kubelet
+
+  - ansible.builtin.copy:
+      src: "_local/ca.pem"
+      dest: "/var/lib/kubernetes/"
+    notify: restart_kubelet
+
+  - ansible.builtin.template:
+      src: "kubelet-config.yaml.j2"
+      dest: "/var/lib/kubelet/kubelet-config.yaml"
+    notify: restart_kubelet
+
+  - ansible.builtin.template:
+      src: "kubelet.service.j2"
+      dest: "/etc/systemd/system/kubelet.service"
+    notify: restart_kubelet
+
+  # Configure the Kubernetes Proxy
+
+  - ansible.builtin.copy:
+      src: "_local/kube-proxy.kubeconfig"
+      dest: "/var/lib/kube-proxy/kubeconfig"
+    notify: restart_kube-proxy
+
+  - ansible.builtin.template:
+      src: "kube-proxy-config.yaml.j2"
+      dest: "/var/lib/kube-proxy/kube-proxy-config.yaml"
+    notify: restart_kube-proxy
+
+  - ansible.builtin.copy:
+      src: "kube-proxy.service"
+      dest: "/etc/systemd/system/"
+    notify: restart_kube-proxy
+
+  handlers:
+
+  - name: restart_containerd
+    ansible.builtin.systemd:
+      daemon_reload: true
+      name: "containerd"
+      enabled: true
+      state: "started"
+
+  - name: restart_kubelet
+    ansible.builtin.systemd:
+      daemon_reload: true
+      name: "kubelet"
+      enabled: true
+      state: "started"
+
+  - name: restart_kube-proxy
+    ansible.builtin.systemd:
+      daemon_reload: true
+      name: "kube-proxy"
+      enabled: true
+      state: "started"

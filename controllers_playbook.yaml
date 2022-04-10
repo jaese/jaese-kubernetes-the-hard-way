@@ -22,6 +22,10 @@
   - ansible.builtin.copy:
       src: "_local/ca.pem"
       dest: "/var/lib/kubernetes/"
+    notify:
+    - restart_kube-apiserver
+    - restart_kube-controller-manager
+    - restart_kube-scheduler
 
   # Configure the Kubernetes API Server
 

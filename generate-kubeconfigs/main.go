@@ -8,12 +8,13 @@ import (
 
 var OutPathPrefix = "_local/"
 
-var WorkerNodeNames = []string{"worker-0", "worker-1"}
+var WorkerNodeNames = []string{"worker-0", "worker-1", "worker-2"}
 
 var IPAddresses = map[string]string{
 	"controller-0": "192.168.60.20",
 	"worker-0":     "192.168.60.30",
 	"worker-1":     "192.168.60.31",
+	"worker-2":     "192.168.60.31",
 }
 
 // Deploying only one master instance ('controller-0') in order to avoid having

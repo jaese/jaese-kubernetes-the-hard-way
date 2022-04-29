@@ -136,18 +136,18 @@
       daemon_reload: true
       name: "containerd"
       enabled: true
-      state: "started"
+      state: "restarted"
 
   - name: restart_kubelet
     ansible.builtin.systemd:
       daemon_reload: true
       name: "kubelet"
       enabled: true
-      state: "started"
+      state: "restarted"
 
   - name: restart_kube-proxy
     ansible.builtin.systemd:
       daemon_reload: true
       name: "kube-proxy"
       enabled: true
-      state: "started"
+      state: "restarted"
